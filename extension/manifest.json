@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "Mira",
+  "version": "0.1",
+  "description": "Safety-first navigation layer for women",
+  "content_scripts": [
+    {
+      "matches": ["https://www.google.com/maps/*"],
+      "js": ["content.js"]
+    }
+  ]
+}
+
