@@ -87,7 +87,7 @@ button.style.cursor = "pointer";
 // Button click handler
 // ===============================
 button.onclick = async () => {
-  status.innerText = "Analyzing…";
+  status.innerText = "Analyzing...";
 
   try {
     const response = await fetch("http://127.0.0.1:8000/score/route", {
@@ -105,6 +105,61 @@ drawFakeRoute(data.score);
 };
 
 panel.appendChild(button);
+
+// ===============================
+// Whisper input (minimal version)
+// ===============================
+const whisperTitle = document.createElement("div");
+whisperTitle.innerText = "Add a Whisper";
+whisperTitle.style.marginTop = "16px";
+whisperTitle.style.fontWeight = "bold";
+whisperTitle.style.fontSize = "14px";
+panel.appendChild(whisperTitle);
+
+// Dropdown
+const whisperSelect = document.createElement("select");
+whisperSelect.style.width = "100%";
+whisperSelect.style.marginTop = "6px";
+whisperSelect.style.padding = "6px";
+whisperSelect.style.borderRadius = "6px";
+
+["Well-lit", "Busy", "Empty", "Sketchy"].forEach(label => {
+  const option = document.createElement("option");
+  option.value = label;
+  option.innerText = label;
+  whisperSelect.appendChild(option);
+});
+
+panel.appendChild(whisperSelect);
+
+// Submit button
+const whisperButton = document.createElement("button");
+whisperButton.innerText = "Submit Whisper";
+whisperButton.style.width = "100%";
+whisperButton.style.marginTop = "6px";
+whisperButton.style.padding = "6px";
+whisperButton.style.border = "none";
+whisperButton.style.borderRadius = "8px";
+whisperButton.style.background = "#c71585";
+whisperButton.style.color = "white";
+whisperButton.style.cursor = "pointer";
+
+panel.appendChild(whisperButton);
+
+// Feedback text
+const whisperStatus = document.createElement("div");
+whisperStatus.style.fontSize = "12px";
+whisperStatus.style.marginTop = "6px";
+panel.appendChild(whisperStatus);
+
+// Handle submit
+whisperButton.onclick = () => {
+  const value = whisperSelect.value;
+  console.log("Whisper submitted:", value);
+
+  whisperStatus.innerText = "Thanks for helping the next girl 💗";
+};
+
 
 // ===============================
 // Inject panel into page
