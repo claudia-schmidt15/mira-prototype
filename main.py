@@ -1,5 +1,11 @@
+from typing import List
+from datetime import datetime
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+# In-memory store for whispers (temporary)
+whispers: List[dict] = []
 
 app = FastAPI()
 
@@ -32,4 +38,20 @@ def score_route():
         "score": demo_score,
         "label": label
     }
+
+@app.post("/whisper")
+def add_whisper(data: dict):
+    whisper = {
+        "value": data.get("value"),
+        "timestamp": datetime.utcnow().isoformat()
+    }
+    whispers.append(whisper)
+    return {"status": "ok", "whisper": whisper}
+
+@app.get("/whisper/latest")
+def get_latest_whisper():
+    if not whispers:
+        return {"whisper": None}
+    return {"whisper": whispers[-1]}
+
 

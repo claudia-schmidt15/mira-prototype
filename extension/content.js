@@ -160,13 +160,41 @@ recentWhisper.style.fontStyle = "italic";
 panel.appendChild(recentWhisper);
 
 // Handle submit
-whisperButton.onclick = () => {
+whisperButton.onclick = async () => {
   const value = whisperSelect.value;
-  console.log("Whisper submitted:", value);
+  whisperStatus.innerText = "Submitting whisper...";
 
-  whisperStatus.innerText = "Thanks for helping the next girl 💗";
-  recentWhisper.innerText = `Recent whisper: ${value}`;
+  try {
+    await fetch("http://127.0.0.1:8000/whisper", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ value })
+    });
+
+    whisperStatus.innerText = "Thanks for helping the next girl 💗";
+    recentWhisper.innerText = `Recent whisper: ${value}`;
+  } catch (err) {
+    console.error("Whisper API error:", err);
+    whisperStatus.innerText = "Error submitting whisper";
+  }
 };
+
+// Load latest whisper from backend
+(async () => {
+  try {
+    const res = await fetch("http://127.0.0.1:8000/whisper/latest");
+    const data = await res.json();
+
+    if (data.whisper) {
+      recentWhisper.innerText = `Recent whisper: ${data.whisper.value}`;
+    }
+  } catch (err) {
+    console.error("Failed to load latest whisper", err);
+  }
+})();
+
 
 
 // ===============================
