@@ -18,18 +18,9 @@ def health():
 
 @app.post("/score/route")
 def score_route():
-    demo_score = 25  # 🔧 change this number to demo different routes
-
-    if demo_score >= 70:
-        label = "comfortable"
-    elif demo_score >= 40:
-        label = "mixed"
-    else:
-        label = "avoid"
-
     return {
         "city": "NYC",
-        "score": demo_score,
-        "label": label
+        "score": 72,
+        "label": "comfortable",
+        "color": "green"
     }
-
