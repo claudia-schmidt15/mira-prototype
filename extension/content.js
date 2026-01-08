@@ -152,12 +152,20 @@ whisperStatus.style.fontSize = "12px";
 whisperStatus.style.marginTop = "6px";
 panel.appendChild(whisperStatus);
 
+// Recent whisper display
+const recentWhisper = document.createElement("div");
+recentWhisper.style.fontSize = "12px";
+recentWhisper.style.marginTop = "8px";
+recentWhisper.style.fontStyle = "italic";
+panel.appendChild(recentWhisper);
+
 // Handle submit
 whisperButton.onclick = () => {
   const value = whisperSelect.value;
   console.log("Whisper submitted:", value);
 
   whisperStatus.innerText = "Thanks for helping the next girl 💗";
+  recentWhisper.innerText = `Recent whisper: ${value}`;
 };
 
 
