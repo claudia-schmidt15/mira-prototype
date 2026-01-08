@@ -4,6 +4,13 @@ from datetime import datetime
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+WHISPER_WEIGHTS = {
+    "Well-lit": 10,
+    "Busy": 5,
+    "Empty": -5,
+    "Sketchy": -15
+}
+
 # In-memory store for whispers (temporary)
 whispers: List[dict] = []
 
@@ -24,20 +31,30 @@ def health():
 
 @app.post("/score/route")
 def score_route():
-    demo_score = 25  # 🔧 change this number to demo different routes
+    base_score = 60  # neutral starting point
 
-    if demo_score >= 70:
+    # Apply whisper effects
+    score = base_score
+    for w in whispers[-3:]:  # use last 3 whispers
+        impact = WHISPER_WEIGHTS.get(w["value"], 0)
+        score += impact
+
+    # Clamp score between 0 and 100
+    score = max(0, min(100, score))
+
+    if score >= 70:
         label = "comfortable"
-    elif demo_score >= 40:
+    elif score >= 40:
         label = "mixed"
     else:
         label = "avoid"
 
     return {
         "city": "NYC",
-        "score": demo_score,
+        "score": score,
         "label": label
     }
+
 
 @app.post("/whisper")
 def add_whisper(data: dict):
