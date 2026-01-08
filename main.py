@@ -54,4 +54,10 @@ def get_latest_whisper():
         return {"whisper": None}
     return {"whisper": whispers[-1]}
 
+@app.get("/whisper/recent")
+def get_recent_whispers(limit: int = 3):
+    return {
+        "whispers": whispers[-limit:] if whispers else []
+    }
+
 

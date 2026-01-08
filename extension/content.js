@@ -152,12 +152,20 @@ whisperStatus.style.fontSize = "12px";
 whisperStatus.style.marginTop = "6px";
 panel.appendChild(whisperStatus);
 
-// Recent whisper display
-const recentWhisper = document.createElement("div");
-recentWhisper.style.fontSize = "12px";
-recentWhisper.style.marginTop = "8px";
-recentWhisper.style.fontStyle = "italic";
-panel.appendChild(recentWhisper);
+// Recent whispers list
+const recentWhispersTitle = document.createElement("div");
+recentWhispersTitle.innerText = "Recent whispers:";
+recentWhispersTitle.style.fontSize = "12px";
+recentWhispersTitle.style.marginTop = "8px";
+recentWhispersTitle.style.fontWeight = "bold";
+panel.appendChild(recentWhispersTitle);
+
+const recentWhispersList = document.createElement("ul");
+recentWhispersList.style.paddingLeft = "16px";
+recentWhispersList.style.marginTop = "4px";
+recentWhispersList.style.fontSize = "12px";
+panel.appendChild(recentWhispersList);
+
 
 // Handle submit
 whisperButton.onclick = async () => {
@@ -174,7 +182,16 @@ whisperButton.onclick = async () => {
     });
 
     whisperStatus.innerText = "Thanks for helping the next girl 💗";
-    recentWhisper.innerText = `Recent whisper: ${value}`;
+
+    const item = document.createElement("li");
+    item.innerText = value;
+    recentWhispersList.prepend(item);
+
+    // Keep only last 3
+    while (recentWhispersList.children.length > 3) {
+      recentWhispersList.removeChild(recentWhispersList.lastChild);
+    }
+
   } catch (err) {
     console.error("Whisper API error:", err);
     whisperStatus.innerText = "Error submitting whisper";
@@ -184,12 +201,17 @@ whisperButton.onclick = async () => {
 // Load latest whisper from backend
 (async () => {
   try {
-    const res = await fetch("http://127.0.0.1:8000/whisper/latest");
+    const res = await fetch("http://127.0.0.1:8000/whisper/recent?limit=3");
     const data = await res.json();
 
-    if (data.whisper) {
-      recentWhisper.innerText = `Recent whisper: ${data.whisper.value}`;
-    }
+    recentWhispersList.innerHTML = "";
+
+    data.whispers.forEach(w => {
+      const item = document.createElement("li");
+      item.innerText = w.value;
+      recentWhispersList.appendChild(item);
+    });
+
   } catch (err) {
     console.error("Failed to load latest whisper", err);
   }
