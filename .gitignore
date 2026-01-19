@@ -9,3 +9,5 @@ __pycache__/
 # Environment
 .env
 
+# Large raw map data
+data/*.osm.pbf
