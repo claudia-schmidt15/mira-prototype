@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Mira – Safety-Aware Routing</title>
+    <style>
+      body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+      }
+
+      #map {
+        height: 100vh;
+        width: 100%;
+      }
+
+      /* Safety slider */
+      #controls {
+        position: absolute;
+        top: 15px;
+        left: 15px;
+        background: white;
+        padding: 12px;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        z-index: 5;
+      }
+
+      #label {
+        font-size: 14px;
+        margin-bottom: 6px;
+      }
+
+      /* Legend */
+      #legend {
+        position: absolute;
+        bottom: 20px;
+        left: 15px;
+        background: white;
+        padding: 10px 12px;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        font-size: 13px;
+        z-index: 5;
+      }
+
+      .legend-item {
+        display: flex;
+        align-items: center;
+        margin-bottom: 6px;
+      }
+
+      .legend-color {
+        width: 14px;
+        height: 14px;
+        border-radius: 3px;
+        margin-right: 8px;
+      }
+
+      .legend-title {
+        font-weight: bold;
+        margin-bottom: 6px;
+      }
+
+      /* Floating MIRA button */
+      #mira-button {
+        position: absolute;
+        right: 20px;
+        bottom: 90px;
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: #2563eb;
+        color: white;
+        font-weight: bold;
+        font-size: 14px;
+        border: none;
+        cursor: pointer;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        z-index: 10;
+      }
+
+      /* Mira side panel */
+      #mira-panel {
+        position: absolute;
+        top: 0;
+        right: -320px;
+        width: 320px;
+        height: 100%;
+        background: white;
+        box-shadow: -2px 0 10px rgba(0,0,0,0.2);
+        padding: 16px;
+        transition: right 0.3s ease;
+        z-index: 11;
+      }
+
+      #mira-panel.open {
+        right: 0;
+      }
+
+      #mira-panel h2 {
+        margin-top: 0;
+      }
+
+      .mira-action {
+        display: block;
+        width: 100%;
+        padding: 12px;
+        margin-top: 12px;
+        font-size: 14px;
+        border-radius: 6px;
+        border: none;
+        cursor: pointer;
+      }
+
+      .mira-primary {
+        background: #2563eb;
+        color: white;
+      }
+
+      .mira-secondary {
+        background: #f3f4f6;
+      }
+    </style>
+  </head>
+
+  <body>
+    <!-- Safety slider -->
+    <div id="controls">
+      <div id="label">
+        Safety Weight: <strong><span id="weightValue">0.5</span></strong>
+      </div>
+      <input
+        type="range"
+        min="0"
+        max="1"
+        step="0.1"
+        value="0.5"
+        id="safetySlider"
+      />
+    </div>
+
+    <!-- Legend -->
+    <div id="legend">
+      <div class="legend-title">Mira Safety</div>
+      <div class="legend-item">
+        <div class="legend-color" style="background:#2ecc71;"></div>
+        <div>Safer</div>
+      </div>
+      <div class="legend-item">
+        <div class="legend-color" style="background:#f1c40f;"></div>
+        <div>Neutral</div>
+      </div>
+      <div class="legend-item">
+        <div class="legend-color" style="background:#e74c3c;"></div>
+        <div>Less safe</div>
+      </div>
+    </div>
+
+    <!-- Mira button + panel -->
+    <button id="mira-button">MIRA</button>
+
+    <div id="mira-panel">
+      <button onclick="toggleMiraPanel()" style="float:right;">✕</button>
+      <h2>Mira</h2>
+      <p>What would you like to do?</p>
+
+      <button class="mira-action mira-primary" onclick="analyzeRoute()">
+        Analyze this route
+      </button>
+
+      <button class="mira-action mira-secondary" onclick="startWhisperMode()">
+        Add a whisper
+      </button>
+    </div>
+
+    <!-- Map -->
+    <div id="map"></div>
+
+    <script>
+      let map;
+      let routeLine = null;
+      let currentSafetyWeight = 0.5;
+
+      let segmentDebounceTimer = null;
+      const SEGMENT_DEBOUNCE_MS = 300;
+
+      const START = { lat: 40.7484, lng: -73.9857 };
+      const END   = { lat: 40.7527, lng: -73.9772 };
+
+      /* ---------- MAP ---------- */
+
+      function initMap() {
+        map = new google.maps.Map(document.getElementById("map"), {
+          center: START,
+          zoom: 14,
+        });
+
+        styleSegments();
+
+        map.addListener("idle", () => {
+          if (segmentDebounceTimer) clearTimeout(segmentDebounceTimer);
+          segmentDebounceTimer = setTimeout(loadSegments, SEGMENT_DEBOUNCE_MS);
+        });
+
+        loadSegments();
+        drawRoute(0.5);
+      }
+
+      async function drawRoute(weight) {
+        const url = `/route?start_lat=${START.lat}&start_lng=${START.lng}&end_lat=${END.lat}&end_lng=${END.lng}&safety_weight=${weight}`;
+        const res = await fetch(url);
+        const data = await res.json();
+
+        if (!data.geometry) return;
+
+        const coords = data.geometry.coordinates.flat().map(c => ({
+          lng: c[0],
+          lat: c[1]
+        }));
+
+        if (routeLine) routeLine.setMap(null);
+
+        routeLine = new google.maps.Polyline({
+          path: coords,
+          strokeColor: "#2563eb",
+          strokeOpacity: 0.9,
+          strokeWeight: 5,
+        });
+
+        routeLine.setMap(map);
+      }
+
+      /* ---------- SLIDER ---------- */
+
+      const slider = document.getElementById("safetySlider");
+      const label = document.getElementById("weightValue");
+
+      slider.addEventListener("input", () => {
+        const value = parseFloat(slider.value);
+        label.textContent = value;
+        currentSafetyWeight = value;
+        styleSegments();
+        drawRoute(value);
+      });
+
+      /* ---------- SEGMENTS ---------- */
+
+      async function loadSegments() {
+        if (!map) return;
+
+        const bounds = map.getBounds();
+        if (!bounds) return;
+
+        const sw = bounds.getSouthWest();
+        const ne = bounds.getNorthEast();
+
+        const params = new URLSearchParams({
+          city_id: "atlanta_midtown",
+          min_lng: sw.lng(),
+          min_lat: sw.lat(),
+          max_lng: ne.lng(),
+          max_lat: ne.lat(),
+        });
+
+        const res = await fetch(`/v1/segments?${params}`);
+        const geojson = await res.json();
+
+        map.data.forEach(f => map.data.remove(f));
+        map.data.addGeoJson(geojson);
+      }
+
+      function styleSegments() {
+        map.data.setStyle(feature => {
+          const score = feature.getProperty("safety_score") ?? 0.6;
+          const neutral = 0.6;
+          const blended = neutral + (score - neutral) * currentSafetyWeight;
+
+          let color = "#f1c40f";
+          if (blended >= 0.75) color = "#2ecc71";
+          if (blended < 0.6) color = "#e74c3c";
+
+          return {
+            strokeColor: color,
+            strokeWeight: 3,
+            strokeOpacity: 0.9,
+          };
+        });
+      }
+
+      /* ---------- MIRA PANEL ---------- */
+
+      const miraButton = document.getElementById("mira-button");
+      const miraPanel = document.getElementById("mira-panel");
+
+      function toggleMiraPanel() {
+        miraPanel.classList.toggle("open");
+      }
+
+      miraButton.addEventListener("click", toggleMiraPanel);
+
+      function analyzeRoute() {
+        alert("Route analysis coming next.");
+      }
+
+      function startWhisperMode() {
+        alert("Click a street to add a whisper.");
+      }
+    </script>
+
+    <script
+      src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDSeDi5dpv55C96jyMMbICRwJQ9Y0r0rnY&callback=initMap"
+      async
+      defer
+    ></script>
+  </body>
+</html>
+
+
+
+

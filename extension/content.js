@@ -1,226 +1,143 @@
-console.log("Mira loaded");
+(() => {
+  console.log("🟣 Mira content.js loaded (URL parsing mode)");
 
-function getRouteColor(score) {
-  if (score >= 70) return "#00aa66";   // green
-  if (score >= 40) return "#f4c430";   // yellow
-  return "#d9534f";                    // red
-}
-
-function drawFakeRoute(score) {
-  // Remove existing route if it exists
-  const existing = document.getElementById("mira-route");
-  if (existing) existing.remove();
-
-  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  svg.setAttribute("id", "mira-route");
-  svg.style.position = "fixed";
-  svg.style.top = "0";
-  svg.style.left = "0";
-  svg.style.width = "100vw";
-  svg.style.height = "100vh";
-  svg.style.pointerEvents = "none";
-  svg.style.zIndex = "9998";
-
-  const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-  line.setAttribute("x1", "300");
-  line.setAttribute("y1", "300");
-  line.setAttribute("x2", "600");
-  line.setAttribute("y2", "500");
-  line.setAttribute("stroke", getRouteColor(score));
-  line.setAttribute("stroke-width", "6");
-  line.setAttribute("stroke-linecap", "round");
-
-  svg.appendChild(line);
-  document.body.appendChild(svg);
-}
-
-// ===============================
-// Create Mira panel
-// ===============================
-const panel = document.createElement("div");
-panel.style.position = "fixed";
-panel.style.top = "100px";
-panel.style.right = "20px";
-panel.style.background = "#ffd1dc";
-panel.style.color = "#000";
-panel.style.padding = "14px";
-panel.style.borderRadius = "14px";
-panel.style.fontFamily = "Arial, sans-serif";
-panel.style.boxShadow = "0 4px 10px rgba(0,0,0,0.15)";
-panel.style.zIndex = "9999";
-panel.style.width = "200px";
-
-// ===============================
-// Title
-// ===============================
-const title = document.createElement("div");
-title.innerText = "Mira";
-title.style.fontWeight = "bold";
-title.style.fontSize = "16px";
-title.style.marginBottom = "8px";
-panel.appendChild(title);
-
-// ===============================
-// Status text
-// ===============================
-const status = document.createElement("div");
-status.innerText = "Ready to analyze";
-status.style.fontSize = "13px";
-status.style.marginBottom = "12px";
-panel.appendChild(status);
-
-// ===============================
-// Analyze Route button
-// ===============================
-const button = document.createElement("button");
-button.innerText = "Analyze Route";
-button.style.width = "100%";
-button.style.padding = "8px";
-button.style.border = "none";
-button.style.borderRadius = "8px";
-button.style.background = "#ff69b4";
-button.style.color = "white";
-button.style.fontSize = "14px";
-button.style.cursor = "pointer";
-
-// ===============================
-// Button click handler
-// ===============================
-button.onclick = async () => {
-  status.innerText = "Analyzing...";
-
-  try {
-    const response = await fetch("http://127.0.0.1:8000/score/route", {
-      method: "POST"
-    });
-
-    const data = await response.json();
-drawFakeRoute(data.score);
-
-    status.innerText = `NYC: ${data.label} (${data.score})`;
-  } catch (err) {
-    console.error("Mira API error:", err);
-    status.innerText = "Error contacting Mira API";
+  if (window.__MIRA_LOADED__) {
+    console.log("⚠️ Mira already loaded");
+    return;
   }
-};
+  window.__MIRA_LOADED__ = true;
 
-panel.appendChild(button);
+  // ======================================================
+  // Utils — URL parsing
+  // ======================================================
+  function parseGoogleMapsRouteFromURL() {
+  const url = decodeURIComponent(window.location.href);
 
-// ===============================
-// Whisper input (minimal version)
-// ===============================
-const whisperTitle = document.createElement("div");
-whisperTitle.innerText = "Add a Whisper";
-whisperTitle.style.marginTop = "16px";
-whisperTitle.style.fontWeight = "bold";
-whisperTitle.style.fontSize = "14px";
-panel.appendChild(whisperTitle);
+  if (!url.includes("/maps/dir/")) {
+    console.warn("❌ Mira: Not a directions URL");
+    return null;
+  }
 
-// Dropdown
-const whisperSelect = document.createElement("select");
-whisperSelect.style.width = "100%";
-whisperSelect.style.marginTop = "6px";
-whisperSelect.style.padding = "6px";
-whisperSelect.style.borderRadius = "6px";
+  // ---------------------------
+  // START (from /dir/)
+  // ---------------------------
+  const dirPart = url.split("/maps/dir/")[1];
+  const parts = dirPart.split("/");
 
-["Well-lit", "Busy", "Empty", "Sketchy"].forEach(label => {
-  const option = document.createElement("option");
-  option.value = label;
-  option.innerText = label;
-  whisperSelect.appendChild(option);
-});
+  function parseLatLng(str) {
+    const match = str.match(/(-?\d+\.\d+),(-?\d+\.\d+)/);
+    if (!match) return null;
+    return {
+      lat: parseFloat(match[1]),
+      lng: parseFloat(match[2])
+    };
+  }
 
-panel.appendChild(whisperSelect);
+  const start = parseLatLng(parts[0]);
+  if (!start) {
+    console.warn("❌ Mira: Could not parse start");
+    return null;
+  }
 
-// Submit button
-const whisperButton = document.createElement("button");
-whisperButton.innerText = "Submit Whisper";
-whisperButton.style.width = "100%";
-whisperButton.style.marginTop = "6px";
-whisperButton.style.padding = "6px";
-whisperButton.style.border = "none";
-whisperButton.style.borderRadius = "8px";
-whisperButton.style.background = "#c71585";
-whisperButton.style.color = "white";
-whisperButton.style.cursor = "pointer";
+  // ---------------------------
+  // END (path OR data section)
+  // ---------------------------
+  let end = parseLatLng(parts[1]);
 
-panel.appendChild(whisperButton);
-
-// Feedback text
-const whisperStatus = document.createElement("div");
-whisperStatus.style.fontSize = "12px";
-whisperStatus.style.marginTop = "6px";
-panel.appendChild(whisperStatus);
-
-// Recent whispers list
-const recentWhispersTitle = document.createElement("div");
-recentWhispersTitle.innerText = "Recent whispers:";
-recentWhispersTitle.style.fontSize = "12px";
-recentWhispersTitle.style.marginTop = "8px";
-recentWhispersTitle.style.fontWeight = "bold";
-panel.appendChild(recentWhispersTitle);
-
-const recentWhispersList = document.createElement("ul");
-recentWhispersList.style.paddingLeft = "16px";
-recentWhispersList.style.marginTop = "4px";
-recentWhispersList.style.fontSize = "12px";
-panel.appendChild(recentWhispersList);
-
-
-// Handle submit
-whisperButton.onclick = async () => {
-  const value = whisperSelect.value;
-  whisperStatus.innerText = "Submitting whisper...";
-
-  try {
-    await fetch("http://127.0.0.1:8000/whisper", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ value })
-    });
-
-    whisperStatus.innerText = "Thanks for helping the next girl 💗";
-
-    const item = document.createElement("li");
-    item.innerText = value;
-    recentWhispersList.prepend(item);
-
-    // Keep only last 3
-    while (recentWhispersList.children.length > 3) {
-      recentWhispersList.removeChild(recentWhispersList.lastChild);
+  if (!end) {
+    // Fallback: extract from !1d{lng}!2d{lat}
+    const match = url.match(/!1d(-?\d+\.\d+)!2d(-?\d+\.\d+)/);
+    if (match) {
+      end = {
+        lng: parseFloat(match[1]),
+        lat: parseFloat(match[2])
+      };
     }
-
-  } catch (err) {
-    console.error("Whisper API error:", err);
-    whisperStatus.innerText = "Error submitting whisper";
   }
+
+  if (!end) {
+    console.warn("❌ Mira: Could not parse end");
+    return null;
+  }
+
+  return { start, end };
+}
+
+
+  // ======================================================
+  // UI — Mira panel
+  // ======================================================
+  const panel = document.createElement("div");
+  panel.style.cssText = `
+    position: fixed;
+    top: 100px;
+    right: 20px;
+    width: 240px;
+    padding: 14px;
+    background: #ffd1dc;
+    border-radius: 14px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+    font-family: Arial, sans-serif;
+    z-index: 9999;
+  `;
+
+  const title = document.createElement("div");
+  title.innerText = "Mira";
+  title.style.fontWeight = "bold";
+  title.style.fontSize = "16px";
+
+  const status = document.createElement("div");
+  status.innerText = "Ready to analyze";
+  status.style.margin = "8px 0";
+  status.style.fontSize = "13px";
+
+  const button = document.createElement("button");
+  button.innerText = "Analyze Route";
+  button.style.cssText = `
+    width: 100%;
+    padding: 8px;
+    border-radius: 8px;
+    border: none;
+    background: #ff69b4;
+    color: white;
+    font-size: 14px;
+    cursor: pointer;
+  `;
+
+  button.onclick = async () => {
+  console.log("📍 Full URL:", window.location.href);
+
+  status.innerText = "Parsing route from URL…";
+
+  const route = parseGoogleMapsRouteFromURL();
+
+  if (!route) {
+    status.innerText = "Could not parse route";
+    return;
+  }
+
+  status.innerText = "Requesting safer route…";
+
+  const res = await fetch(
+    `http://127.0.0.1:8000/route?` +
+    `start_lat=${route.start.lat}` +
+    `&start_lng=${route.start.lng}` +
+    `&end_lat=${route.end.lat}` +
+    `&end_lng=${route.end.lng}` +
+    `&safety_weight=0.7`
+  );
+
+  if (!res.ok) {
+    status.innerText = "Route request failed";
+    console.error(await res.text());
+    return;
+  }
+
+  const geojson = await res.json();
+  console.log("🟣 Mira route GeoJSON:", geojson);
+
+  status.innerText = "Route received ✓";
 };
-
-// Load latest whisper from backend
-(async () => {
-  try {
-    const res = await fetch("http://127.0.0.1:8000/whisper/recent?limit=3");
-    const data = await res.json();
-
-    recentWhispersList.innerHTML = "";
-
-    data.whispers.forEach(w => {
-      const item = document.createElement("li");
-      item.innerText = w.value;
-      recentWhispersList.appendChild(item);
-    });
-
-  } catch (err) {
-    console.error("Failed to load latest whisper", err);
-  }
+    panel.append(title, status, button);
+    document.body.appendChild(panel);
 })();
-
-
-
-// ===============================
-// Inject panel into page
-// ===============================
-document.body.appendChild(panel);
-
